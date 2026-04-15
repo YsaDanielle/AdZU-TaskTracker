@@ -1,4 +1,4 @@
-# AdZU Student Task & Deadline Tracker
+# AdZU Student Task & Deadline Tracker (AdZU TaskHub)
 
 A clean university-themed web app for Ateneo de Zamboanga University students to organize subjects, track deadlines, and mark work as done. It now includes real account registration/login plus MySQL persistence so each user has a separate workspace you can inspect in phpMyAdmin.
 
