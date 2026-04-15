@@ -498,13 +498,10 @@ function App() {
 
       <header className="hero-card glass-panel">
         <div className="hero-copy">
-          <div className="eyebrow">
-            <img src="/adzu-seal.png" alt="Ateneo de Zamboanga University seal" className="eyebrow-seal" />
-          </div>
           <h1>Student Task &amp; Deadline Tracker</h1>
           <p>
             A calm, university-themed workspace for classes, deadlines, and daily momentum.
-            Built for students who want Notion-lite clarity without the clutter.
+            Built for students who want Notion-lite clarity.
           </p>
 
           <div className="hero-actions">
@@ -854,7 +851,7 @@ function App() {
           <section className="glass-panel panel">
             <div className="section-heading">
               <div>
-                <span className="section-kicker">Calendar view</span>
+                <span className="section-kicker">Calendar View</span>
                 <h2>Upcoming timeline</h2>
               </div>
             </div>

@@ -714,8 +714,27 @@ input[type='color'] {
   flex-shrink: 0;
 }
 
+.edit-button {
+  color: var(--blue-700);
+  background: rgba(230, 240, 255, 0.88);
+}
+
 .task-copy {
   flex: 1;
+}
+
+.task-edit-form {
+  gap: 12px;
+}
+
+.task-edit-actions,
+.task-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.task-actions {
+  flex-shrink: 0;
 }
 
 .task-topline,

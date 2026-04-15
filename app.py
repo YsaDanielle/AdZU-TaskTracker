@@ -478,25 +478,68 @@ def update_task(task_id):
         return error
 
     payload = request.get_json(silent=True) or {}
+    title = payload.get("title")
+    subject_id = payload.get("subjectId")
+    due_date = payload.get("dueDate")
+    priority = payload.get("priority")
     status = payload.get("status")
+    notes = payload.get("notes")
 
-    if status not in {"todo", "done"}:
-        return jsonify({"message": "Status must be todo or done."}), 400
+    allowed_fields = {"title", "subjectId", "dueDate", "priority", "status", "notes"}
+    updates = {key: value for key, value in payload.items() if key in allowed_fields}
+
+    if not updates:
+        return jsonify({"message": "Provide at least one task field to update."}), 400
 
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                UPDATE tasks
-                SET status = %s
+                SELECT id, subject_id, title, due_date, priority, status, notes
+                FROM tasks
                 WHERE id = %s AND user_id = %s
                 """,
-                (status, task_id, user_id),
+                (task_id, user_id),
             )
+            existing_task = cursor.fetchone()
 
-            if cursor.rowcount == 0:
+            if not existing_task:
                 return jsonify({"message": "Task not found."}), 404
+
+            next_title = (title if title is not None else existing_task["title"]).strip()
+            next_subject_id = subject_id if subject_id is not None else existing_task["subject_id"]
+            next_due_date = due_date if due_date is not None else existing_task["due_date"]
+            next_priority = priority if priority is not None else existing_task["priority"]
+            next_status = status if status is not None else existing_task["status"]
+            next_notes = (notes if notes is not None else existing_task["notes"] or "").strip()
+
+            if not next_title or not next_subject_id or not next_due_date:
+                return jsonify({"message": "Title, subject, and due date are required."}), 400
+
+            if next_priority not in {"High", "Medium", "Low"}:
+                return jsonify({"message": "Choose High, Medium, or Low priority."}), 400
+
+            if next_status not in {"todo", "done"}:
+                return jsonify({"message": "Status must be todo or done."}), 400
+
+            cursor.execute(
+                "SELECT id FROM subjects WHERE id = %s AND user_id = %s",
+                (next_subject_id, user_id),
+            )
+            subject = cursor.fetchone()
+
+            if not subject:
+                return jsonify({"message": "Select a valid subject."}), 400
+
+            cursor.execute(
+                """
+                UPDATE tasks
+                SET subject_id = %s, title = %s, due_date = %s, priority = %s, status = %s, notes = %s
+                WHERE id = %s AND user_id = %s
+                """,
+                (next_subject_id, next_title, next_due_date, next_priority, next_status, next_notes, task_id, user_id),
+            )
 
             cursor.execute(
                 """
