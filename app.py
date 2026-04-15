@@ -194,7 +194,7 @@ def valid_adzu_email(email):
 def handle_mysql_error(error):
     return jsonify(
         {
-            "message": "Database connection failed. Check your XAMPP MySQL server and credentials.",
+            "message": "Something went wrong with the database. Please try again later.",
             "details": str(error),
         }
     ), 500
