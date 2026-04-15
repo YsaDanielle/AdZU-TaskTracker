@@ -137,7 +137,7 @@ img {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .auth-copy,
@@ -150,6 +150,7 @@ img {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-self: center;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(230, 240, 255, 0.74)),
     linear-gradient(90deg, var(--blue-700), var(--blue-500));

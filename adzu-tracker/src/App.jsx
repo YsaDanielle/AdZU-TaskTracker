@@ -482,7 +482,7 @@ function App() {
 
               {authMode === 'register' ? (
                 <p className="helper-text auth-helper">
-                  Register with your official `@adzu.edu.ph` email and use at least 8 characters with uppercase, lowercase, a number, and a special character.
+                  Use at least 8 characters with uppercase, lowercase, a number, and a special character.
                 </p>
               ) : null}
 
