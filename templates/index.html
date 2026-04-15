@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AdZU Student Task &amp; Deadline Tracker</title>
+    <meta
+      name="description"
+      content="A university-themed task and deadline tracker for Ateneo de Zamboanga students."
+    >
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              adzu: {
+                navy: "#12355b",
+                blue: "#1d5f9c",
+                sky: "#e8f3ff",
+                gold: "#f3c24f",
+                cream: "#f8f4ea",
+                ink: "#122033"
+              }
+            },
+            boxShadow: {
+              soft: "0 18px 55px rgba(18, 53, 91, 0.12)"
+            },
+            fontFamily: {
+              display: ["Georgia", "Times New Roman", "serif"],
+              body: ["Inter", "Segoe UI", "sans-serif"]
+            }
+          }
+        }
+      };
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body class="min-h-screen bg-adzu-cream font-body text-adzu-ink antialiased">
+    <div id="root"></div>
+    <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

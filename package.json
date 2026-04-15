@@ -1,0 +1,9 @@
+{
+  "name": "adzu-task-tracker-root",
+  "private": true,
+  "scripts": {
+    "dev": "cd \"adzu-tracker\" && PATH=\"/opt/homebrew/bin:$PATH\" npm run dev",
+    "build": "cd \"adzu-tracker\" && PATH=\"/opt/homebrew/bin:$PATH\" npm run build",
+    "preview": "cd \"adzu-tracker\" && PATH=\"/opt/homebrew/bin:$PATH\" npm run preview"
+  }
+}
