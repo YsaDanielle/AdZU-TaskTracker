@@ -400,12 +400,16 @@ function App() {
 
             <div className="auth-feature-list">
               <div className="auth-feature">
-                <LayoutDashboard size={18} />
-                Secure account login and registration
+                <Flag size={18} />
+                Priority tags for high, medium, and low urgency
               </div>
               <div className="auth-feature">
                 <CalendarDays size={18} />
-                MySQL-backed subjects and deadlines
+                Upcoming deadline tracking with a clear task timeline
+              </div>
+              <div className="auth-feature">
+                <LayoutDashboard size={18} />
+                Subject-based organization with filters and progress tracking
               </div>
             </div>
           </section>
