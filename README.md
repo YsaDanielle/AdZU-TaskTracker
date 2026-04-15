@@ -66,6 +66,33 @@ npm run build
 
 After building, Flask can serve the compiled app from `adzu-tracker/dist`.
 
+## Deploy To Vercel
+
+This repository should be deployed from the repo root:
+
+- Root Directory: `./`
+- Application Preset: `Flask`
+
+The project includes a root [vercel.json](/Applications/XAMPP/xamppfiles/htdocs/AdZU-TaskTracker/vercel.json:1) that tells Vercel to build the React frontend inside `adzu-tracker/` before serving it through Flask.
+
+What Vercel needs:
+
+1. Import the repository with the root directory set to `./`.
+2. Keep the backend entry at the repo root so `app.py` is deployed.
+3. Add production database environment variables in Vercel Project Settings:
+   - `MYSQL_HOST`
+   - `MYSQL_PORT`
+   - `MYSQL_USER`
+   - `MYSQL_PASSWORD`
+   - `MYSQL_DB`
+   - `FLASK_SECRET_KEY`
+
+Important:
+
+- XAMPP MySQL on your laptop will not exist on Vercel.
+- You need a hosted MySQL or MariaDB database for production.
+- Without those environment variables, the deploy may load the frontend but API/database requests will fail.
+
 ## Portfolio Framing
 
 Built a full-stack student productivity tracker with React, Flask, and MySQL. Implemented account registration/login, secure password hashing, per-user subject and task management, calendar-style deadline visibility, and a polished university-themed interface backed by a relational database.

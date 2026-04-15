@@ -13,6 +13,14 @@ SESSION_COOKIE_NAME = "adzu_tracker_session"
 PASSWORD_HASH_METHOD = "pbkdf2:sha256"
 
 
+def env_first(*names, default=None):
+    for name in names:
+        value = os.getenv(name)
+        if value not in {None, ""}:
+            return value
+    return default
+
+
 app = Flask(
     __name__,
     static_folder=str(FRONTEND_DIST),
@@ -22,11 +30,11 @@ app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "adzu-task-tracker-dev-
 app.config["SESSION_COOKIE_NAME"] = SESSION_COOKIE_NAME
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "127.0.0.1")
-app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", "3306"))
-app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "root")
-app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "")
-app.config["MYSQL_DB"] = os.getenv("MYSQL_DB", "adzu_task_tracker")
+app.config["MYSQL_HOST"] = env_first("MYSQL_HOST", "MYSQLHOST", default="127.0.0.1")
+app.config["MYSQL_PORT"] = int(env_first("MYSQL_PORT", "MYSQLPORT", default="3306"))
+app.config["MYSQL_USER"] = env_first("MYSQL_USER", "MYSQLUSER", default="root")
+app.config["MYSQL_PASSWORD"] = env_first("MYSQL_PASSWORD", "MYSQLPASSWORD", default="")
+app.config["MYSQL_DB"] = env_first("MYSQL_DB", "MYSQLDATABASE", default="adzu_task_tracker")
 app.config["DB_READY"] = False
 
 
@@ -86,17 +94,23 @@ def initialize_database():
     if app.config["DB_READY"]:
         return
 
-    bootstrap = pymysql.connect(**mysql_config(include_database=False))
     try:
-        with bootstrap.cursor() as cursor:
-            cursor.execute(
-                f"CREATE DATABASE IF NOT EXISTS `{app.config['MYSQL_DB']}` "
-                "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-            )
-    finally:
-        bootstrap.close()
+        connection = pymysql.connect(**mysql_config())
+    except pymysql.err.OperationalError as error:
+        if error.args and error.args[0] != 1049:
+            raise
 
-    connection = pymysql.connect(**mysql_config())
+        bootstrap = pymysql.connect(**mysql_config(include_database=False))
+        try:
+            with bootstrap.cursor() as cursor:
+                cursor.execute(
+                    f"CREATE DATABASE IF NOT EXISTS `{app.config['MYSQL_DB']}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
+        finally:
+            bootstrap.close()
+        connection = pymysql.connect(**mysql_config())
+
     try:
         with connection.cursor() as cursor:
             for statement in [part.strip() for part in SCHEMA_SQL.split(";") if part.strip()]:
