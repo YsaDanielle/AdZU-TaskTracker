@@ -169,6 +169,13 @@ def valid_password(password):
     return all([has_uppercase, has_lowercase, has_digit, has_special])
 
 
+def valid_adzu_email(email):
+    if not isinstance(email, str):
+        return False
+
+    return re.fullmatch(r"[A-Za-z0-9._%+-]+@adzu\.edu\.ph", email.strip().lower()) is not None
+
+
 @app.errorhandler(pymysql.MySQLError)
 def handle_mysql_error(error):
     return jsonify(
@@ -227,6 +234,9 @@ def register():
 
     if not name or not email or not password:
         return jsonify({"message": "Name, email, and password are required."}), 400
+
+    if not valid_adzu_email(email):
+        return jsonify({"message": "Use your official AdZU email address to register."}), 400
 
     if not valid_password(password):
         return jsonify(

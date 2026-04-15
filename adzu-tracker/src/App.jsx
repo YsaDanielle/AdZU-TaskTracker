@@ -129,6 +129,12 @@ function App() {
       return
     }
 
+    if (authMode === 'register' && !isAdzuEmail(authForm.email)) {
+      setAuthError('Use your official AdZUemail address to register.')
+      setAuthPending(false)
+      return
+    }
+
     try {
       const payload =
         authMode === 'register'
@@ -476,7 +482,7 @@ function App() {
 
               {authMode === 'register' ? (
                 <p className="helper-text auth-helper">
-                  Use at least 8 characters with uppercase, lowercase, a number, and a special character.
+                  Register with your official `@adzu.edu.ph` email and use at least 8 characters with uppercase, lowercase, a number, and a special character.
                 </p>
               ) : null}
 
@@ -1037,6 +1043,10 @@ function isStrongPassword(password) {
     /\d/.test(password) &&
     /[^A-Za-z0-9]/.test(password)
   )
+}
+
+function isAdzuEmail(email) {
+  return /^[A-Za-z0-9._%+-]+@adzu\.edu\.ph$/i.test(email.trim())
 }
 
 export default App
