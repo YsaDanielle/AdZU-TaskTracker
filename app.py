@@ -1,6 +1,7 @@
 import os
 import re
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 import pymysql
 from flask import Flask, jsonify, request, send_from_directory, session
@@ -21,6 +22,28 @@ def env_first(*names, default=None):
     return default
 
 
+def mysql_settings_from_env():
+    database_url = env_first("MYSQL_PUBLIC_URL", "MYSQL_URL", "DATABASE_URL")
+    if database_url:
+        parsed = urlparse(database_url)
+        if parsed.scheme.startswith("mysql"):
+            return {
+                "host": parsed.hostname or "127.0.0.1",
+                "port": parsed.port or 3306,
+                "user": unquote(parsed.username or "root"),
+                "password": unquote(parsed.password or ""),
+                "database": parsed.path.lstrip("/") or "adzu_task_tracker",
+            }
+
+    return {
+        "host": env_first("MYSQL_HOST", "MYSQLHOST", default="127.0.0.1"),
+        "port": int(env_first("MYSQL_PORT", "MYSQLPORT", default="3306")),
+        "user": env_first("MYSQL_USER", "MYSQLUSER", default="root"),
+        "password": env_first("MYSQL_PASSWORD", "MYSQLPASSWORD", default=""),
+        "database": env_first("MYSQL_DB", "MYSQLDATABASE", default="adzu_task_tracker"),
+    }
+
+
 app = Flask(
     __name__,
     static_folder=str(FRONTEND_DIST),
@@ -30,11 +53,12 @@ app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "adzu-task-tracker-dev-
 app.config["SESSION_COOKIE_NAME"] = SESSION_COOKIE_NAME
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["MYSQL_HOST"] = env_first("MYSQL_HOST", "MYSQLHOST", default="127.0.0.1")
-app.config["MYSQL_PORT"] = int(env_first("MYSQL_PORT", "MYSQLPORT", default="3306"))
-app.config["MYSQL_USER"] = env_first("MYSQL_USER", "MYSQLUSER", default="root")
-app.config["MYSQL_PASSWORD"] = env_first("MYSQL_PASSWORD", "MYSQLPASSWORD", default="")
-app.config["MYSQL_DB"] = env_first("MYSQL_DB", "MYSQLDATABASE", default="adzu_task_tracker")
+mysql_settings = mysql_settings_from_env()
+app.config["MYSQL_HOST"] = mysql_settings["host"]
+app.config["MYSQL_PORT"] = mysql_settings["port"]
+app.config["MYSQL_USER"] = mysql_settings["user"]
+app.config["MYSQL_PASSWORD"] = mysql_settings["password"]
+app.config["MYSQL_DB"] = mysql_settings["database"]
 app.config["DB_READY"] = False
 
 

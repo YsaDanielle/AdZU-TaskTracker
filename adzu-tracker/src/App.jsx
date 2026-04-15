@@ -130,7 +130,7 @@ function App() {
     }
 
     if (authMode === 'register' && !isAdzuEmail(authForm.email)) {
-      setAuthError('Use your official AdZUemail address to register.')
+      setAuthError('Use your official @adzu.edu.ph email address to register.')
       setAuthPending(false)
       return
     }
@@ -154,6 +154,19 @@ function App() {
       setAuthPending(false)
       setSessionStatus('ready')
     }
+  }
+
+  function handleAuthKeyDown(event) {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return
+    }
+
+    if (event.target.tagName === 'TEXTAREA') {
+      return
+    }
+
+    event.preventDefault()
+    event.currentTarget.requestSubmit()
   }
 
   async function handleLogout() {
@@ -437,7 +450,7 @@ function App() {
               </div>
             ) : null}
 
-            <form className="task-form" onSubmit={handleAuthSubmit}>
+            <form className="task-form" onSubmit={handleAuthSubmit} onKeyDown={handleAuthKeyDown}>
               {authMode === 'register' ? (
                 <label>
                   Full name
