@@ -253,8 +253,8 @@ img {
 }
 
 .eyebrow-seal {
-  width: 56px;
-  height: 56px;
+  width: 74px;
+  height: 74px;
   object-fit: contain;
   filter: drop-shadow(0 8px 14px rgba(8, 46, 119, 0.14));
 }
@@ -923,6 +923,19 @@ input[type='color'] {
 .timeline-card p {
   margin: 2px 0 0;
   font-size: 0.88rem;
+}
+
+.site-footer {
+  margin-top: 28px;
+  padding: 18px 20px 8px;
+  text-align: center;
+}
+
+.site-footer p {
+  margin: 0;
+  color: rgba(31, 41, 55, 0.62);
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .empty-state {

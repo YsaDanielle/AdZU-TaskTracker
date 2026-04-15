@@ -912,6 +912,10 @@ function App() {
           </section>
         </aside>
       </main>
+
+      <footer className="site-footer">
+        <p>© 2026 AdZU TaskHub. All rights reserved.</p>
+      </footer>
     </div>
   )
 }
