@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  AlertCircle,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -13,13 +14,6 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react'
-
-const SUBJECT_KEY = 'adzu-tracker-subjects'
-const TASK_KEY = 'adzu-tracker-tasks'
-const SESSION_KEY = 'adzu-tracker-session'
-
-const DEMO_SUBJECT_IDS = new Set(['subj-1', 'subj-2', 'subj-3'])
-const DEMO_TASK_IDS = new Set(['task-1', 'task-2', 'task-3'])
 
 const priorityOptions = [
   { value: 'High', tone: 'priority-high' },
@@ -36,65 +30,270 @@ const emptyFilters = {
   query: '',
 }
 
+const emptySubjectForm = {
+  name: '',
+  instructor: '',
+  color: paletteOptions[0],
+}
+
+const emptyTaskForm = {
+  title: '',
+  subjectId: '',
+  dueDate: getRelativeDate(2),
+  priority: 'Medium',
+  notes: '',
+}
+
 function App() {
-  const [session, setSession] = useState(() => loadSession())
-  const [subjects, setSubjects] = useState(() => loadSubjects())
-  const [tasks, setTasks] = useState(() => loadTasks())
-  const [subjectForm, setSubjectForm] = useState({
-    name: '',
-    instructor: '',
-    color: paletteOptions[0],
-  })
-  const [taskForm, setTaskForm] = useState({
-    title: '',
-    subjectId: '',
-    dueDate: getRelativeDate(2),
-    priority: 'Medium',
-    notes: '',
-  })
-  const [loginForm, setLoginForm] = useState({
+  const [sessionStatus, setSessionStatus] = useState('loading')
+  const [session, setSession] = useState(null)
+  const [subjects, setSubjects] = useState([])
+  const [tasks, setTasks] = useState([])
+  const [subjectForm, setSubjectForm] = useState(emptySubjectForm)
+  const [taskForm, setTaskForm] = useState(emptyTaskForm)
+  const [authMode, setAuthMode] = useState('login')
+  const [authForm, setAuthForm] = useState({
     name: '',
     email: '',
+    password: '',
   })
+  const [authError, setAuthError] = useState('')
+  const [authPending, setAuthPending] = useState(false)
+  const [dashboardError, setDashboardError] = useState('')
   const [subjectToDelete, setSubjectToDelete] = useState('')
   const [filters, setFilters] = useState(emptyFilters)
 
   useEffect(() => {
-    window.localStorage.setItem(SUBJECT_KEY, JSON.stringify(subjects))
-  }, [subjects])
-
-  useEffect(() => {
-    window.localStorage.setItem(TASK_KEY, JSON.stringify(tasks))
-  }, [tasks])
+    loadSession()
+  }, [])
 
   useEffect(() => {
     if (session) {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-      return
+      loadDashboard()
     }
-
-    window.localStorage.removeItem(SESSION_KEY)
   }, [session])
 
   useEffect(() => {
     if (!taskForm.subjectId && subjects[0]) {
-      setTaskForm((current) => ({ ...current, subjectId: subjects[0].id }))
+      setTaskForm((current) => ({ ...current, subjectId: String(subjects[0].id) }))
     }
 
-    if (taskForm.subjectId && !subjects.some((subject) => subject.id === taskForm.subjectId)) {
-      setTaskForm((current) => ({ ...current, subjectId: subjects[0]?.id || '' }))
+    if (taskForm.subjectId && !subjects.some((subject) => String(subject.id) === String(taskForm.subjectId))) {
+      setTaskForm((current) => ({ ...current, subjectId: subjects[0] ? String(subjects[0].id) : '' }))
     }
   }, [subjects, taskForm.subjectId])
 
   useEffect(() => {
-    if (subjectToDelete && !subjects.some((subject) => subject.id === subjectToDelete)) {
+    if (subjectToDelete && !subjects.some((subject) => String(subject.id) === String(subjectToDelete))) {
       setSubjectToDelete('')
     }
   }, [subjects, subjectToDelete])
 
+  async function loadSession() {
+    try {
+      const response = await apiRequest('/api/session')
+      setSession(response.user)
+      setSessionStatus('ready')
+    } catch (error) {
+      setSession(null)
+      setSessionStatus('ready')
+      setAuthError(error.message)
+    }
+  }
+
+  async function loadDashboard() {
+    try {
+      setDashboardError('')
+      const [subjectsResponse, tasksResponse] = await Promise.all([
+        apiRequest('/api/subjects'),
+        apiRequest('/api/tasks'),
+      ])
+      setSubjects(subjectsResponse.subjects)
+      setTasks(tasksResponse.tasks)
+    } catch (error) {
+      setDashboardError(error.message)
+    }
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault()
+    setAuthPending(true)
+    setAuthError('')
+
+    try {
+      const payload =
+        authMode === 'register'
+          ? authForm
+          : { email: authForm.email, password: authForm.password }
+
+      const response = await apiRequest(`/api/${authMode}`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      setSession(response.user)
+      setAuthForm({ name: '', email: '', password: '' })
+    } catch (error) {
+      setAuthError(error.message)
+    } finally {
+      setAuthPending(false)
+      setSessionStatus('ready')
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await apiRequest('/api/logout', { method: 'POST' })
+    } catch {
+      // Keep UI responsive even if the request fails.
+    }
+
+    setSession(null)
+    setSubjects([])
+    setTasks([])
+    setFilters(emptyFilters)
+    setDashboardError('')
+    setAuthMode('login')
+  }
+
+  async function handleSubjectSubmit(event) {
+    event.preventDefault()
+    const normalizedColor = normalizeColor(subjectForm.color)
+
+    if (!subjectForm.name.trim() || !normalizedColor) {
+      setDashboardError('Add a subject name and use a valid hex color like #1253B4.')
+      return
+    }
+
+    try {
+      setDashboardError('')
+      const response = await apiRequest('/api/subjects', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: subjectForm.name.trim(),
+          instructor: subjectForm.instructor.trim(),
+          color: normalizedColor,
+        }),
+      })
+
+      setSubjects((current) => [...current, response.subject])
+      setSubjectForm({
+        name: '',
+        instructor: '',
+        color: paletteOptions[subjects.length % paletteOptions.length],
+      })
+      setTaskForm((current) => ({
+        ...current,
+        subjectId: current.subjectId || String(response.subject.id),
+      }))
+    } catch (error) {
+      setDashboardError(error.message)
+    }
+  }
+
+  async function handleDeleteSubject() {
+    if (!subjectToDelete) {
+      return
+    }
+
+    const subject = subjects.find((item) => String(item.id) === String(subjectToDelete))
+    if (!subject) {
+      return
+    }
+
+    const relatedTasks = tasks.filter((task) => String(task.subjectId) === String(subjectToDelete)).length
+    const confirmed = window.confirm(
+      `Delete ${subject.name}? This will also remove ${relatedTasks} related task${relatedTasks === 1 ? '' : 's'}.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDashboardError('')
+      await apiRequest(`/api/subjects/${subjectToDelete}`, { method: 'DELETE' })
+      setSubjects((current) => current.filter((item) => String(item.id) !== String(subjectToDelete)))
+      setTasks((current) => current.filter((task) => String(task.subjectId) !== String(subjectToDelete)))
+      setFilters((current) => ({
+        ...current,
+        subjectId: current.subjectId === String(subjectToDelete) ? 'all' : current.subjectId,
+      }))
+      setSubjectToDelete('')
+    } catch (error) {
+      setDashboardError(error.message)
+    }
+  }
+
+  async function handleTaskSubmit(event) {
+    event.preventDefault()
+
+    if (!taskForm.title.trim() || !taskForm.subjectId || !taskForm.dueDate) {
+      setDashboardError('Task title, subject, and due date are required.')
+      return
+    }
+
+    try {
+      setDashboardError('')
+      const response = await apiRequest('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: taskForm.title.trim(),
+          subjectId: Number(taskForm.subjectId),
+          dueDate: taskForm.dueDate,
+          priority: taskForm.priority,
+          notes: taskForm.notes.trim(),
+        }),
+      })
+
+      setTasks((current) => [response.task, ...current])
+      setTaskForm((current) => ({
+        ...current,
+        title: '',
+        dueDate: getRelativeDate(2),
+        priority: 'Medium',
+        notes: '',
+      }))
+    } catch (error) {
+      setDashboardError(error.message)
+    }
+  }
+
+  async function toggleTaskStatus(taskId) {
+    const task = tasks.find((item) => item.id === taskId)
+    if (!task) {
+      return
+    }
+
+    const nextStatus = task.status === 'done' ? 'todo' : 'done'
+
+    try {
+      const response = await apiRequest(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      setTasks((current) => current.map((item) => (item.id === taskId ? response.task : item)))
+    } catch (error) {
+      setDashboardError(error.message)
+    }
+  }
+
+  async function deleteTask(taskId) {
+    try {
+      await apiRequest(`/api/tasks/${taskId}`, { method: 'DELETE' })
+      setTasks((current) => current.filter((task) => task.id !== taskId))
+    } catch (error) {
+      setDashboardError(error.message)
+    }
+  }
+
+  function updateSubjectColor(value) {
+    setSubjectForm((current) => ({ ...current, color: value }))
+  }
+
   const enrichedTasks = tasks
     .map((task) => {
-      const subject = subjects.find((item) => item.id === task.subjectId)
+      const subject = subjects.find((item) => String(item.id) === String(task.subjectId))
       const dueLabel = formatDisplayDate(task.dueDate)
       const daysLeft = getDaysUntil(task.dueDate)
       const urgency = getUrgency(task.status, daysLeft)
@@ -124,7 +323,7 @@ function App() {
       task.subject?.name.toLowerCase().includes(query)
 
     const matchesStatus = filters.status === 'all' || task.status === filters.status
-    const matchesSubject = filters.subjectId === 'all' || task.subjectId === filters.subjectId
+    const matchesSubject = filters.subjectId === 'all' || String(task.subjectId) === String(filters.subjectId)
     const matchesPriority = filters.priority === 'all' || task.priority === filters.priority
 
     return matchesQuery && matchesStatus && matchesSubject && matchesPriority
@@ -135,125 +334,24 @@ function App() {
   const overdueCount = enrichedTasks.filter((task) => task.urgency === 'overdue').length
   const dueSoonCount = enrichedTasks.filter((task) => task.urgency === 'soon').length
   const groupedTimeline = groupTasksByDate(enrichedTasks.filter((task) => task.status === 'todo'))
-  const subjectTaskCount = subjectToDelete
-    ? tasks.filter((task) => task.subjectId === subjectToDelete).length
-    : 0
 
-  function handleLoginSubmit(event) {
-    event.preventDefault()
-
-    const trimmedName = loginForm.name.trim()
-
-    if (!trimmedName) {
-      return
-    }
-
-    setSession({
-      name: trimmedName,
-      email: loginForm.email.trim(),
-    })
-  }
-
-  function handleLogout() {
-    setSession(null)
-  }
-
-  function handleSubjectSubmit(event) {
-    event.preventDefault()
-
-    const normalizedColor = normalizeColor(subjectForm.color)
-
-    if (!subjectForm.name.trim() || !normalizedColor) {
-      return
-    }
-
-    const newSubject = {
-      id: crypto.randomUUID(),
-      name: subjectForm.name.trim(),
-      instructor: subjectForm.instructor.trim(),
-      color: normalizedColor,
-    }
-
-    setSubjects((current) => [...current, newSubject])
-    setSubjectForm({
-      name: '',
-      instructor: '',
-      color: paletteOptions[(subjects.length + 1) % paletteOptions.length],
-    })
-    setTaskForm((current) => ({ ...current, subjectId: current.subjectId || newSubject.id }))
-  }
-
-  function handleDeleteSubject() {
-    if (!subjectToDelete) {
-      return
-    }
-
-    const subject = subjects.find((item) => item.id === subjectToDelete)
-
-    if (!subject) {
-      return
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${subject.name}? This will also remove ${subjectTaskCount} related task${subjectTaskCount === 1 ? '' : 's'}.`,
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="app-shell auth-shell">
+        <div className="background-orb orb-one"></div>
+        <div className="background-orb orb-two"></div>
+        <main className="auth-layout">
+          <section className="auth-copy glass-panel">
+            <div className="eyebrow">
+              <Sparkles size={16} />
+              Ateneo de Zamboanga University
+            </div>
+            <h1>Loading your workspace...</h1>
+            <p>Checking your session and preparing your student dashboard.</p>
+          </section>
+        </main>
+      </div>
     )
-
-    if (!confirmed) {
-      return
-    }
-
-    setSubjects((current) => current.filter((item) => item.id !== subjectToDelete))
-    setTasks((current) => current.filter((task) => task.subjectId !== subjectToDelete))
-    setFilters((current) => ({
-      ...current,
-      subjectId: current.subjectId === subjectToDelete ? 'all' : current.subjectId,
-    }))
-    setSubjectToDelete('')
-  }
-
-  function handleTaskSubmit(event) {
-    event.preventDefault()
-
-    if (!taskForm.title.trim() || !taskForm.subjectId || !taskForm.dueDate) {
-      return
-    }
-
-    const newTask = {
-      id: crypto.randomUUID(),
-      title: taskForm.title.trim(),
-      subjectId: taskForm.subjectId,
-      dueDate: taskForm.dueDate,
-      priority: taskForm.priority,
-      status: 'todo',
-      notes: taskForm.notes.trim(),
-    }
-
-    setTasks((current) => [newTask, ...current])
-    setTaskForm((current) => ({
-      ...current,
-      title: '',
-      dueDate: getRelativeDate(2),
-      priority: 'Medium',
-      notes: '',
-    }))
-  }
-
-  function toggleTaskStatus(taskId) {
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === taskId
-          ? { ...task, status: task.status === 'done' ? 'todo' : 'done' }
-          : task,
-      ),
-    )
-  }
-
-  function deleteTask(taskId) {
-    setTasks((current) => current.filter((task) => task.id !== taskId))
-  }
-
-  function updateSubjectColor(value) {
-    setSubjectForm((current) => ({ ...current, color: value }))
   }
 
   if (!session) {
@@ -270,22 +368,22 @@ function App() {
             </div>
             <h1>Student Task &amp; Deadline Tracker</h1>
             <p>
-              Track your classes, deadlines, and priorities in one clean workspace made for
-              busy AdZU students.
+              A clean university-themed planner where registered students can manage subjects,
+              deadlines, and daily progress in one account.
             </p>
 
             <div className="auth-feature-list">
               <div className="auth-feature">
                 <LayoutDashboard size={18} />
-                Color-coded subjects and task priorities
+                Secure account login and registration
               </div>
               <div className="auth-feature">
                 <CalendarDays size={18} />
-                Timeline view for upcoming deadlines
+                MySQL-backed subjects and deadlines
               </div>
               <div className="auth-feature">
                 <CheckCircle2 size={18} />
-                Local-first persistence with quick daily check-ins
+                Data you can inspect in phpMyAdmin
               </div>
             </div>
           </section>
@@ -293,35 +391,77 @@ function App() {
           <section className="auth-card glass-panel">
             <div className="section-heading stacked">
               <div>
-                <span className="section-kicker">Local sign in</span>
-                <h2>Enter your student workspace</h2>
+                <span className="section-kicker">Account access</span>
+                <h2>{authMode === 'login' ? 'Log in to your workspace' : 'Create your account'}</h2>
               </div>
             </div>
 
-            <form className="task-form" onSubmit={handleLoginSubmit}>
-              <label>
-                Full name
-                <input
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={loginForm.name}
-                  onChange={(event) => setLoginForm((current) => ({ ...current, name: event.target.value }))}
-                />
-              </label>
+            <div className="auth-toggle">
+              <button
+                type="button"
+                className={authMode === 'login' ? 'auth-tab active' : 'auth-tab'}
+                onClick={() => {
+                  setAuthMode('login')
+                  setAuthError('')
+                }}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className={authMode === 'register' ? 'auth-tab active' : 'auth-tab'}
+                onClick={() => {
+                  setAuthMode('register')
+                  setAuthError('')
+                }}
+              >
+                Register
+              </button>
+            </div>
+
+            {authError ? (
+              <div className="notice-banner error">
+                <AlertCircle size={16} />
+                <span>{authError}</span>
+              </div>
+            ) : null}
+
+            <form className="task-form" onSubmit={handleAuthSubmit}>
+              {authMode === 'register' ? (
+                <label>
+                  Full name
+                  <input
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={authForm.name}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, name: event.target.value }))}
+                  />
+                </label>
+              ) : null}
 
               <label>
-                School email
+                Email
                 <input
                   type="email"
-                  placeholder="Optional"
-                  value={loginForm.email}
-                  onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="student@adzu.edu.ph"
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
                 />
               </label>
 
-              <button type="submit" className="primary-button">
+              <label>
+                Password
+                <input
+                  type="password"
+                  placeholder={authMode === 'register' ? 'At least 8 characters' : 'Enter your password'}
+                  value={authForm.password}
+                  onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                />
+              </label>
+
+              <button type="submit" className="primary-button" disabled={authPending}>
                 <UserRound size={18} />
-                Continue to tracker
+                {authPending ? 'Please wait...' : authMode === 'login' ? 'Log in' : 'Create account'}
               </button>
             </form>
           </section>
@@ -365,6 +505,7 @@ function App() {
 
         <div className="hero-brand">
           <div className="brand-badge">{session.name}</div>
+          {session.email ? <p className="brand-subtitle">{session.email}</p> : null}
           <img src="/adzu-seal.png" alt="Ateneo de Zamboanga University seal" className="brand-seal" />
           <button type="button" className="logout-button" onClick={handleLogout}>
             <LogOut size={16} />
@@ -381,13 +522,20 @@ function App() {
             <StatCard icon={<CheckCircle2 size={18} />} label="Completed" value={completedCount} tone="slate" />
           </div>
 
+          {dashboardError ? (
+            <div className="notice-banner error">
+              <AlertCircle size={16} />
+              <span>{dashboardError}</span>
+            </div>
+          ) : null}
+
           <section className="glass-panel panel">
             <div className="section-heading">
               <div>
                 <span className="section-kicker">Workspace</span>
                 <h2>Add a new task</h2>
               </div>
-              <div className="pill-chip">localStorage enabled</div>
+              <div className="pill-chip">MySQL enabled</div>
             </div>
 
             {subjects.length === 0 ? (
@@ -668,7 +816,7 @@ function App() {
                 </div>
               ) : (
                 subjects.map((subject) => {
-                  const activeTasks = tasks.filter((task) => task.subjectId === subject.id && task.status === 'todo').length
+                  const activeTasks = tasks.filter((task) => String(task.subjectId) === String(subject.id) && task.status === 'todo').length
                   return (
                     <article key={subject.id} className="subject-card">
                       <span className="subject-accent" style={{ background: subject.color }}></span>
@@ -741,54 +889,24 @@ function StatCard({ icon, label, value, tone }) {
   )
 }
 
-function loadSession() {
-  try {
-    const saved = window.localStorage.getItem(SESSION_KEY)
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+    ...options,
+  })
 
-    if (!saved) {
-      return null
-    }
+  const isJson = response.headers.get('content-type')?.includes('application/json')
+  const payload = isJson ? await response.json() : null
 
-    const parsed = JSON.parse(saved)
-    return parsed?.name ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-function loadSubjects() {
-  const saved = readArray(SUBJECT_KEY)
-
-  if (!saved.length) {
-    return []
+  if (!response.ok) {
+    throw new Error(payload?.message || 'Something went wrong.')
   }
 
-  return saved.filter((subject) => subject?.id && !DEMO_SUBJECT_IDS.has(subject.id))
-}
-
-function loadTasks() {
-  const saved = readArray(TASK_KEY)
-
-  if (!saved.length) {
-    return []
-  }
-
-  return saved.filter((task) => task?.id && !DEMO_TASK_IDS.has(task.id))
-}
-
-function readArray(key) {
-  try {
-    const saved = window.localStorage.getItem(key)
-
-    if (!saved) {
-      return []
-    }
-
-    const parsed = JSON.parse(saved)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+  return payload
 }
 
 function getRelativeDate(offset) {
