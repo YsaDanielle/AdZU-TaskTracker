@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import pymysql
@@ -9,6 +10,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIST = BASE_DIR / "adzu-tracker" / "dist"
 SESSION_COOKIE_NAME = "adzu_tracker_session"
+PASSWORD_HASH_METHOD = "pbkdf2:sha256"
 
 
 app = Flask(
@@ -155,6 +157,18 @@ def valid_hex_color(value):
     return all(character in "0123456789abcdefABCDEF" for character in value[1:])
 
 
+def valid_password(password):
+    if len(password) < 8:
+        return False
+
+    has_uppercase = re.search(r"[A-Z]", password)
+    has_lowercase = re.search(r"[a-z]", password)
+    has_digit = re.search(r"\d", password)
+    has_special = re.search(r"[^A-Za-z0-9]", password)
+
+    return all([has_uppercase, has_lowercase, has_digit, has_special])
+
+
 @app.errorhandler(pymysql.MySQLError)
 def handle_mysql_error(error):
     return jsonify(
@@ -214,8 +228,12 @@ def register():
     if not name or not email or not password:
         return jsonify({"message": "Name, email, and password are required."}), 400
 
-    if len(password) < 8:
-        return jsonify({"message": "Password must be at least 8 characters long."}), 400
+    if not valid_password(password):
+        return jsonify(
+            {
+                "message": "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.",
+            }
+        ), 400
 
     connection = get_db_connection()
     try:
@@ -231,7 +249,7 @@ def register():
                 INSERT INTO users (full_name, email, password_hash)
                 VALUES (%s, %s, %s)
                 """,
-                (name, email, generate_password_hash(password)),
+                (name, email, generate_password_hash(password, method=PASSWORD_HASH_METHOD)),
             )
             user_id = cursor.lastrowid
     finally:

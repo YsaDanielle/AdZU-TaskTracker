@@ -4,6 +4,8 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Eye,
+  EyeOff,
   Filter,
   Flag,
   LayoutDashboard,
@@ -59,6 +61,7 @@ function App() {
   })
   const [authError, setAuthError] = useState('')
   const [authPending, setAuthPending] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
   const [subjectToDelete, setSubjectToDelete] = useState('')
   const [filters, setFilters] = useState(emptyFilters)
@@ -119,6 +122,12 @@ function App() {
     event.preventDefault()
     setAuthPending(true)
     setAuthError('')
+
+    if (authMode === 'register' && !isStrongPassword(authForm.password)) {
+      setAuthError('Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character.')
+      setAuthPending(false)
+      return
+    }
 
     try {
       const payload =
@@ -343,8 +352,7 @@ function App() {
         <main className="auth-layout">
           <section className="auth-copy glass-panel">
             <div className="eyebrow">
-              <Sparkles size={16} />
-              Ateneo de Zamboanga University
+              <img src="/adzu-seal.png" alt="Ateneo de Zamboanga University seal" className="eyebrow-seal" />
             </div>
             <h1>Loading your workspace...</h1>
             <p>Checking your session and preparing your student dashboard.</p>
@@ -363,8 +371,7 @@ function App() {
         <main className="auth-layout">
           <section className="auth-copy glass-panel">
             <div className="eyebrow">
-              <Sparkles size={16} />
-              Ateneo de Zamboanga University
+              <img src="/adzu-seal.png" alt="Ateneo de Zamboanga University seal" className="eyebrow-seal" />
             </div>
             <h1>Student Task &amp; Deadline Tracker</h1>
             <p>
@@ -380,10 +387,6 @@ function App() {
               <div className="auth-feature">
                 <CalendarDays size={18} />
                 MySQL-backed subjects and deadlines
-              </div>
-              <div className="auth-feature">
-                <CheckCircle2 size={18} />
-                Data you can inspect in phpMyAdmin
               </div>
             </div>
           </section>
@@ -403,6 +406,7 @@ function App() {
                 onClick={() => {
                   setAuthMode('login')
                   setAuthError('')
+                  setShowPassword(false)
                 }}
               >
                 Login
@@ -413,6 +417,7 @@ function App() {
                 onClick={() => {
                   setAuthMode('register')
                   setAuthError('')
+                  setShowPassword(false)
                 }}
               >
                 Register
@@ -451,13 +456,29 @@ function App() {
 
               <label>
                 Password
-                <input
-                  type="password"
-                  placeholder={authMode === 'register' ? 'At least 8 characters' : 'Enter your password'}
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
-                />
+                <div className="password-field">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder={authMode === 'register' ? 'Create a strong password' : 'Enter your password'}
+                    value={authForm.password}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </label>
+
+              {authMode === 'register' ? (
+                <p className="helper-text auth-helper">
+                  Use at least 8 characters with uppercase, lowercase, a number, and a special character.
+                </p>
+              ) : null}
 
               <button type="submit" className="primary-button" disabled={authPending}>
                 <UserRound size={18} />
@@ -478,8 +499,7 @@ function App() {
       <header className="hero-card glass-panel">
         <div className="hero-copy">
           <div className="eyebrow">
-            <Sparkles size={16} />
-            Ateneo de Zamboanga University
+            <img src="/adzu-seal.png" alt="Ateneo de Zamboanga University seal" className="eyebrow-seal" />
           </div>
           <h1>Student Task &amp; Deadline Tracker</h1>
           <p>
@@ -535,7 +555,6 @@ function App() {
                 <span className="section-kicker">Workspace</span>
                 <h2>Add a new task</h2>
               </div>
-              <div className="pill-chip">MySQL enabled</div>
             </div>
 
             {subjects.length === 0 ? (
@@ -890,20 +909,33 @@ function StatCard({ icon, label, value, tone }) {
 }
 
 async function apiRequest(url, options = {}) {
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-    ...options,
-  })
+  let response
 
-  const isJson = response.headers.get('content-type')?.includes('application/json')
+  try {
+    response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      ...options,
+    })
+  } catch {
+    throw new Error('Cannot reach the backend. Make sure `python3 app.py` is still running.')
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  const isJson = contentType.includes('application/json')
   const payload = isJson ? await response.json() : null
+  const text = !isJson ? await response.text() : ''
 
   if (!response.ok) {
-    throw new Error(payload?.message || 'Something went wrong.')
+    throw new Error(
+      payload?.message ||
+        (text.includes('<!doctype html')
+          ? 'The backend returned an internal server error. Check the Flask terminal for the real error.'
+          : text.trim() || 'Something went wrong.'),
+    )
   }
 
   return payload
@@ -998,6 +1030,16 @@ function getPriorityTone(priority) {
 function normalizeColor(value) {
   const trimmed = value.trim()
   return /^#([0-9a-f]{6})$/i.test(trimmed) ? trimmed.toUpperCase() : ''
+}
+
+function isStrongPassword(password) {
+  return (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  )
 }
 
 export default App

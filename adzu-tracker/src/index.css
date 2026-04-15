@@ -246,9 +246,16 @@ img {
 }
 
 .eyebrow {
-  color: var(--blue-800);
-  background: rgba(255, 255, 255, 0.78);
-  padding: 10px 14px;
+  justify-content: center;
+  background: transparent;
+  padding: 0;
+}
+
+.eyebrow-seal {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(8, 46, 119, 0.14));
 }
 
 .hero-copy h1,
@@ -479,6 +486,33 @@ img {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 52px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 12px;
+  color: var(--blue-700);
+  background: transparent;
+}
+
+.password-toggle:hover {
+  background: rgba(230, 240, 255, 0.8);
 }
 
 .field-row {
@@ -804,6 +838,10 @@ input[type='color'] {
   margin: -4px 0 0;
   font-size: 0.85rem;
   color: rgba(31, 41, 55, 0.62);
+}
+
+.auth-helper {
+  margin-top: -8px;
 }
 
 .subject-card {
